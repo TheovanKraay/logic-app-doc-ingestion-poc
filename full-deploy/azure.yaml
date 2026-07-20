@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: logic-app-doc-ingestion-full
+metadata:
+  template: logic-app-doc-ingestion-poc/full-deploy
+# Infra provisions everything (blob, cosmos, logic app, managed identity, roles).
+# The Logic App workflow content is deployed by the postprovision hook.
+hooks:
+  postprovision:
+    windows:
+      shell: pwsh
+      run: ./scripts/postprovision.ps1
+      interactive: true
+      continueOnError: false
+    posix:
+      shell: sh
+      run: echo "Use PowerShell (pwsh) to run scripts/postprovision.ps1" && exit 1

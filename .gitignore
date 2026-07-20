@@ -1,0 +1,14 @@
+# Compiled Bicep output
+**/main.json
+
+# Azure Developer CLI
+.azure/
+
+# Local settings / secrets
+**/local.settings.json
+*.env
+.env
+
+# OS / editor
+.DS_Store
+Thumbs.db

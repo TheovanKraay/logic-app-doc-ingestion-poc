@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.45.15.27210",
-      "templateHash": "11931566968114000889"
+      "templateHash": "13629279936809597633"
     }
   },
   "parameters": {
@@ -103,7 +103,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.45.15.27210",
-              "templateHash": "3505638220593739731"
+              "templateHash": "12428540227473320803"
             }
           },
           "parameters": {
@@ -415,7 +415,7 @@
               },
               "properties": {
                 "customSubDomainName": "[format('{0}-aoai', variables('prefix'))]",
-                "disableLocalAuth": true,
+                "disableLocalAuth": false,
                 "publicNetworkAccess": "Enabled"
               }
             },
@@ -457,31 +457,16 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}-aoai', variables('prefix')))]",
-              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('{0}-aoai', variables('prefix'))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-mi', variables('prefix'))), '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')]",
-              "properties": {
-                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')]",
-                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-mi', variables('prefix'))), '2023-01-31').principalId]",
-                "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}-aoai', variables('prefix')))]",
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-mi', variables('prefix')))]"
-              ]
-            },
-            {
-              "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2022-04-01",
               "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}-docint', variables('prefix')))]",
-              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('{0}-docint', variables('prefix'))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-mi', variables('prefix'))), 'a97b65f3-24c7-4388-baec-2e87135dc908')]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('{0}-docint', variables('prefix'))), resourceId('Microsoft.Web/sites', format('{0}-logic', variables('prefix'))), 'a97b65f3-24c7-4388-baec-2e87135dc908')]",
               "properties": {
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')]",
-                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-mi', variables('prefix'))), '2023-01-31').principalId]",
+                "principalId": "[reference(resourceId('Microsoft.Web/sites', format('{0}-logic', variables('prefix'))), '2023-12-01', 'full').identity.principalId]",
                 "principalType": "ServicePrincipal"
               },
               "dependsOn": [
                 "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}-docint', variables('prefix')))]",
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-mi', variables('prefix')))]"
+                "[resourceId('Microsoft.Web/sites', format('{0}-logic', variables('prefix')))]"
               ]
             },
             {
@@ -510,7 +495,7 @@
               "tags": "[union(parameters('tags'), createObject('azd-service-name', 'workflow'))]",
               "kind": "functionapp,workflowapp",
               "identity": {
-                "type": "UserAssigned",
+                "type": "SystemAssigned, UserAssigned",
                 "userAssignedIdentities": {
                   "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-mi', variables('prefix'))))]": {}
                 }

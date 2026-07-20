@@ -74,36 +74,7 @@ az cosmosdb list -g $RG --query "[].name" -o tsv    # db = rag, container = docu
 
 ---
 
-## Step 3 — One-time auth prep (two quirks)
-
-Two connectors don't fit the "managed identity everywhere" default, so prepare them once:
-
-**a) Azure OpenAI — enable key auth** (its built-in connector supports **only** key or
-AD-OAuth, not managed identity):
-
-```powershell
-$AOAI = az cognitiveservices account list -g $RG --query "[?kind=='OpenAI'].name|[0]" -o tsv
-az resource update -g $RG -n $AOAI --resource-type "Microsoft.CognitiveServices/accounts" --set properties.disableLocalAuth=false -o none
-```
-
-**b) Document Intelligence — give the Logic App a system-assigned identity + role**
-(its connection uses *Logic Apps Managed Identity*, i.e. the **system-assigned** identity):
-
-```powershell
-$LA = az resource list -g $RG --resource-type Microsoft.Web/sites --query "[0].name" -o tsv
-$PID = az webapp identity assign -g $RG -n $LA --query principalId -o tsv
-$DOCINT = az cognitiveservices account list -g $RG --query "[?kind=='FormRecognizer'].name|[0]" -o tsv
-$DID = az cognitiveservices account show -g $RG -n $DOCINT --query id -o tsv
-az role assignment create --assignee-object-id $PID --assignee-principal-type ServicePrincipal --role "Cognitive Services User" --scope $DID -o none
-```
-
-> The user-assigned identity already has: `Storage Blob Data Reader` (data storage),
-> `Cosmos DB Built-in Data Contributor` (Cosmos), and `Cognitive Services OpenAI User`
-> (OpenAI). Role changes can take a few minutes to propagate.
-
----
-
-## Step 4 — Upload PDFs
+## Step 3 — Upload PDFs
 
 Portal: open the **data** storage account → **Storage browser → Blob containers →
 documents → Upload**. (Authentication method resolves to *Microsoft Entra ID* — no key.)
@@ -117,7 +88,7 @@ az storage blob upload --account-name $DATA --container-name documents --name my
 
 ---
 
-## Step 5 — Create the workflow from the template
+## Step 4 — Create the workflow from the template
 
 1. Open the **Logic App** (`*-logic`) → **Workflows → Add → Add from template** (or
    **Templates**), and choose **"Document ingestion from Azure Blob Storage using Azure
@@ -126,7 +97,7 @@ az storage blob upload --account-name $DATA --container-name documents --name my
 
 ---
 
-## Step 6 — Wire the four connections (this is the important part)
+## Step 5 — Wire the four connections (this is the important part)
 
 Create each connection with the auth type below. **Do not** leave any on Access Key /
 "Microsoft Entra ID Integrated" (that signs in as *you*, not the app).
@@ -147,7 +118,7 @@ Create each connection with the auth type below. **Do not** leave any on Access 
 | Account | `<prefix>-cosmos` (or its endpoint) |
 
 ### Azure OpenAI → **URL and key-based authentication**
-*(this connector has no Managed identity option — that's why Step 3a enabled key auth)*
+*(this connector has no Managed identity option — the deployment enables key auth on the account)*
 | Field | Value |
 | --- | --- |
 | Authentication Type | **URL and key-based authentication** |
@@ -155,7 +126,7 @@ Create each connection with the auth type below. **Do not** leave any on Access 
 | Authentication Key | **KEY 1** from the AOAI resource → *Keys and Endpoint* |
 
 ### Azure AI Document Intelligence → **Logic Apps Managed Identity**
-*(uses the app's system-assigned identity from Step 3b)*
+*(uses the app's system-assigned identity, configured automatically by the deployment)*
 | Field | Value |
 | --- | --- |
 | Authentication Type | **Logic Apps Managed Identity** |
@@ -163,7 +134,7 @@ Create each connection with the auth type below. **Do not** leave any on Access 
 
 ---
 
-## Step 7 — Set the parameters
+## Step 6 — Set the parameters
 
 | Parameter | Value |
 | --- | --- |
@@ -179,7 +150,7 @@ Then **Review + create**.
 
 ---
 
-## Step 8 — Run it (and re-run it)
+## Step 7 — Run it (and re-run it)
 
 This is a **blob-triggered** workflow, so it runs on a blob event — **not** the manual
 **Run** button (a manual run has no blob, so `blobName` is empty → `BadRequest /
@@ -192,7 +163,7 @@ ServiceOperationRequiredParameterMissing`).
 
 ---
 
-## Step 9 — Verify
+## Step 8 — Verify
 
 - **Run history** (left menu) shows each run and every action's inputs/outputs.
 - **Cosmos DB**: open the `rag` / `documents` container → **Items**, or query:
@@ -210,5 +181,5 @@ ServiceOperationRequiredParameterMissing`).
 | **"ReactView frame failed to load"** in the designer | Cosmetic portal issue. Click **Leave preview** for the classic designer, allow third-party cookies for `[*.]azure.com`, try InPrivate/another browser. The workflow still runs. |
 | Read blob content: **`InvalidResourceName / The specified resource name contains invalid characters`** | The **Blob Storage documents path** was a URL or expression. It must be the plain container name, e.g. `documents`. |
 | Read blob content: **`blobName is missing`** on a manual run | You used **Run** on a blob-triggered workflow. Upload a blob or **Resubmit** a previous run instead. |
-| OpenAI connection won't authenticate | The account still has key auth disabled — run Step 3a. |
-| Document Intelligence connection fails at runtime | The app's **system-assigned** identity or its `Cognitive Services User` role is missing/propagating — run Step 3b and wait a few minutes. |
+| OpenAI connection won't authenticate | The account should have key auth enabled by the deployment. If it was turned off: `az resource update -g $RG -n <aoai> --resource-type Microsoft.CognitiveServices/accounts --set properties.disableLocalAuth=false`. |
+| Document Intelligence connection fails at runtime | The app's **system-assigned** identity + its `Cognitive Services User` role are configured by the deployment; allow a few minutes for role propagation. |

@@ -219,7 +219,10 @@ resource openAi 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
   sku: { name: 'S0' }
   properties: {
     customSubDomainName: '${prefix}-aoai'
-    disableLocalAuth: true
+    // The Azure OpenAI built-in Logic Apps connector supports only key-based or
+    // AD-OAuth (app registration) auth - it has NO managed identity option - so key
+    // auth must remain enabled here. Your data stores (Blob + Cosmos) stay key-free.
+    disableLocalAuth: false
     publicNetworkAccess: 'Enabled'
   }
 }
@@ -250,24 +253,15 @@ resource docIntelligence 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
   }
 }
 
-// Cognitive Services OpenAI User for the identity on the Azure OpenAI account
-resource openAiUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(openAi.id, uami.id, '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')
-  scope: openAi
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')
-    principalId: uami.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// Cognitive Services User for the identity on the Document Intelligence account
-resource docIntelUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(docIntelligence.id, uami.id, 'a97b65f3-24c7-4388-baec-2e87135dc908')
+// Cognitive Services User for the Logic App's SYSTEM-assigned identity on the
+// Document Intelligence account. The Document Intelligence connection uses
+// "Logic Apps Managed Identity", which is the app's system-assigned identity.
+resource docIntelSystemRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(docIntelligence.id, logicApp.id, 'a97b65f3-24c7-4388-baec-2e87135dc908')
   scope: docIntelligence
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')
-    principalId: uami.properties.principalId
+    principalId: logicApp.identity.principalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -297,7 +291,7 @@ resource logicApp 'Microsoft.Web/sites@2023-12-01' = {
   tags: union(tags, { 'azd-service-name': 'workflow' })
   kind: 'functionapp,workflowapp'
   identity: {
-    type: 'UserAssigned'
+    type: 'SystemAssigned, UserAssigned'
     userAssignedIdentities: {
       '${uami.id}': {}
     }

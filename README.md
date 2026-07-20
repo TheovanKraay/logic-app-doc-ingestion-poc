@@ -24,6 +24,10 @@ so it works even when the storage account has **shared key access disabled**.
 > *"You do not have permissions to list the data using your user account"* and must assign
 > the role manually.
 
+**➡️ Full step-by-step portal walkthrough (deploy → upload PDFs → wire the 4 connections →
+run → verify), including every connection's exact auth type and troubleshooting:
+[full-deploy/README.md](full-deploy/README.md).**
+
 ## Why this exists
 
 Customers hardening their storage (shared key disabled / private endpoints) hit two classes of failure:

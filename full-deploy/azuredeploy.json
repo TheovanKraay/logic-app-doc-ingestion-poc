@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.45.15.27210",
-      "templateHash": "2787318030547332967"
+      "templateHash": "17112868390401990031"
     }
   },
   "parameters": {
@@ -31,17 +31,18 @@
         "description": "Resource group to create."
       }
     },
-    "openAiEndpoint": {
+    "openAiLocation": {
       "type": "string",
+      "defaultValue": "[parameters('location')]",
       "metadata": {
-        "description": "Azure OpenAI endpoint (e.g. https://my-aoai.openai.azure.com/). Bring your own."
+        "description": "Location for the Azure OpenAI account. Must have text-embedding quota. Defaults to the main location."
       }
     },
     "openAiEmbeddingDeployment": {
       "type": "string",
       "defaultValue": "text-embedding-3-small",
       "metadata": {
-        "description": "Azure OpenAI embedding deployment name (e.g. text-embedding-3-small)."
+        "description": "Azure OpenAI embedding deployment name."
       }
     }
   },
@@ -78,8 +79,8 @@
           "tags": {
             "value": "[variables('tags')]"
           },
-          "openAiEndpoint": {
-            "value": "[parameters('openAiEndpoint')]"
+          "openAiLocation": {
+            "value": "[parameters('openAiLocation')]"
           },
           "openAiEmbeddingDeployment": {
             "value": "[parameters('openAiEmbeddingDeployment')]"
@@ -92,7 +93,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.45.15.27210",
-              "templateHash": "5102117235561829256"
+              "templateHash": "3067342166383407411"
             }
           },
           "parameters": {
@@ -115,16 +116,46 @@
                 "description": "Tags applied to all resources."
               }
             },
-            "openAiEndpoint": {
+            "openAiLocation": {
               "type": "string",
+              "defaultValue": "[parameters('location')]",
               "metadata": {
-                "description": "Azure OpenAI endpoint (bring your own)."
+                "description": "Location for the Azure OpenAI account (must have embedding model quota)."
               }
             },
             "openAiEmbeddingDeployment": {
               "type": "string",
+              "defaultValue": "text-embedding-3-small",
               "metadata": {
                 "description": "Azure OpenAI embedding deployment name."
+              }
+            },
+            "openAiEmbeddingModel": {
+              "type": "string",
+              "defaultValue": "text-embedding-3-small",
+              "metadata": {
+                "description": "Embedding model name."
+              }
+            },
+            "openAiEmbeddingModelVersion": {
+              "type": "string",
+              "defaultValue": "1",
+              "metadata": {
+                "description": "Embedding model version."
+              }
+            },
+            "openAiEmbeddingCapacity": {
+              "type": "int",
+              "defaultValue": 120,
+              "metadata": {
+                "description": "TPM capacity (in thousands) for the embedding deployment."
+              }
+            },
+            "openAiEmbeddingSku": {
+              "type": "string",
+              "defaultValue": "GlobalStandard",
+              "metadata": {
+                "description": "Deployment SKU for the embedding model (GlobalStandard usually has the most quota)."
               }
             }
           },
@@ -341,6 +372,87 @@
               ]
             },
             {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2024-10-01",
+              "name": "[format('{0}-aoai', variables('prefix'))]",
+              "location": "[parameters('openAiLocation')]",
+              "tags": "[parameters('tags')]",
+              "kind": "OpenAI",
+              "sku": {
+                "name": "S0"
+              },
+              "properties": {
+                "customSubDomainName": "[format('{0}-aoai', variables('prefix'))]",
+                "disableLocalAuth": true,
+                "publicNetworkAccess": "Enabled"
+              }
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2024-10-01",
+              "name": "[format('{0}/{1}', format('{0}-aoai', variables('prefix')), parameters('openAiEmbeddingDeployment'))]",
+              "sku": {
+                "name": "[parameters('openAiEmbeddingSku')]",
+                "capacity": "[parameters('openAiEmbeddingCapacity')]"
+              },
+              "properties": {
+                "model": {
+                  "format": "OpenAI",
+                  "name": "[parameters('openAiEmbeddingModel')]",
+                  "version": "[parameters('openAiEmbeddingModelVersion')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}-aoai', variables('prefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2024-10-01",
+              "name": "[format('{0}-docint', variables('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "FormRecognizer",
+              "sku": {
+                "name": "S0"
+              },
+              "properties": {
+                "customSubDomainName": "[format('{0}-docint', variables('prefix'))]",
+                "disableLocalAuth": true,
+                "publicNetworkAccess": "Enabled"
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}-aoai', variables('prefix')))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('{0}-aoai', variables('prefix'))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-mi', variables('prefix'))), '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-mi', variables('prefix'))), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}-aoai', variables('prefix')))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-mi', variables('prefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}-docint', variables('prefix')))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('{0}-docint', variables('prefix'))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-mi', variables('prefix'))), 'a97b65f3-24c7-4388-baec-2e87135dc908')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-mi', variables('prefix'))), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}-docint', variables('prefix')))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-mi', variables('prefix')))]"
+              ]
+            },
+            {
               "type": "Microsoft.Web/serverfarms",
               "apiVersion": "2023-12-01",
               "name": "[format('{0}-plan', variables('prefix'))]",
@@ -453,11 +565,15 @@
                     },
                     {
                       "name": "OPENAI_ENDPOINT",
-                      "value": "[parameters('openAiEndpoint')]"
+                      "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('{0}-aoai', variables('prefix'))), '2024-10-01').endpoint]"
                     },
                     {
                       "name": "OPENAI_EMBEDDING_DEPLOYMENT",
                       "value": "[parameters('openAiEmbeddingDeployment')]"
+                    },
+                    {
+                      "name": "DOC_INTELLIGENCE_ENDPOINT",
+                      "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('{0}-docint', variables('prefix'))), '2024-10-01').endpoint]"
                     },
                     {
                       "name": "WORKFLOWS_SUBSCRIPTION_ID",
@@ -478,7 +594,9 @@
                 "[resourceId('Microsoft.Insights/components', format('{0}-ai', variables('prefix')))]",
                 "[resourceId('Microsoft.DocumentDB/databaseAccounts', format('{0}-cosmos', variables('prefix')))]",
                 "[resourceId('Microsoft.Storage/storageAccounts', format('{0}data', variables('prefix')))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}-docint', variables('prefix')))]",
                 "[resourceId('Microsoft.Storage/storageAccounts', format('{0}host', variables('prefix')))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}-aoai', variables('prefix')))]",
                 "[resourceId('Microsoft.Web/serverfarms', format('{0}-plan', variables('prefix')))]",
                 "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-mi', variables('prefix')))]"
               ]
@@ -516,6 +634,18 @@
             "managedIdentityPrincipalId": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-mi', variables('prefix'))), '2023-01-31').principalId]"
+            },
+            "openAiEndpoint": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('{0}-aoai', variables('prefix'))), '2024-10-01').endpoint]"
+            },
+            "openAiEmbeddingDeployment": {
+              "type": "string",
+              "value": "[parameters('openAiEmbeddingDeployment')]"
+            },
+            "docIntelligenceEndpoint": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('{0}-docint', variables('prefix'))), '2024-10-01').endpoint]"
             }
           }
         }
@@ -561,6 +691,18 @@
     "MANAGED_IDENTITY_CLIENT_ID": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'resources'), '2025-04-01').outputs.managedIdentityClientId.value]"
+    },
+    "OPENAI_ENDPOINT": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'resources'), '2025-04-01').outputs.openAiEndpoint.value]"
+    },
+    "OPENAI_EMBEDDING_DEPLOYMENT": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'resources'), '2025-04-01').outputs.openAiEmbeddingDeployment.value]"
+    },
+    "DOC_INTELLIGENCE_ENDPOINT": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'resources'), '2025-04-01').outputs.docIntelligenceEndpoint.value]"
     }
   }
 }

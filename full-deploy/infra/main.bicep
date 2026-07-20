@@ -12,10 +12,10 @@ param location string
 @description('Resource group to create.')
 param resourceGroupName string = 'rg-${environmentName}'
 
-@description('Azure OpenAI endpoint (e.g. https://my-aoai.openai.azure.com/). Bring your own.')
-param openAiEndpoint string
+@description('Location for the Azure OpenAI account. Must have text-embedding quota. Defaults to the main location.')
+param openAiLocation string = location
 
-@description('Azure OpenAI embedding deployment name (e.g. text-embedding-3-small).')
+@description('Azure OpenAI embedding deployment name.')
 param openAiEmbeddingDeployment string = 'text-embedding-3-small'
 
 var tags = {
@@ -42,7 +42,7 @@ module resources 'resources.bicep' = {
     location: location
     environmentName: environmentName
     tags: tags
-    openAiEndpoint: openAiEndpoint
+    openAiLocation: openAiLocation
     openAiEmbeddingDeployment: openAiEmbeddingDeployment
   }
 }
@@ -56,3 +56,6 @@ output COSMOS_ACCOUNT_NAME string = resources.outputs.cosmosAccountName
 output COSMOS_DATABASE_NAME string = resources.outputs.cosmosDatabaseName
 output COSMOS_CONTAINER_NAME string = resources.outputs.cosmosContainerName
 output MANAGED_IDENTITY_CLIENT_ID string = resources.outputs.managedIdentityClientId
+output OPENAI_ENDPOINT string = resources.outputs.openAiEndpoint
+output OPENAI_EMBEDDING_DEPLOYMENT string = resources.outputs.openAiEmbeddingDeployment
+output DOC_INTELLIGENCE_ENDPOINT string = resources.outputs.docIntelligenceEndpoint

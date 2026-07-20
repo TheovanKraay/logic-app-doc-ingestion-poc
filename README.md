@@ -10,11 +10,12 @@ so it works even when the storage account has **shared key access disabled**.
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FTheovanKraay%2Flogic-app-doc-ingestion-poc%2Fmain%2Ffull-deploy%2Fazuredeploy.json)
 
-> **Note:** the button fetches the ARM template from `raw.githubusercontent.com`, which
-> only works when the repository is **public**. While this repo is private, use
-> `azd up` from [`full-deploy/`](full-deploy/) instead (or make the repo public).
-> You will be asked for a location and your **Azure OpenAI endpoint** + embedding
-> deployment name.
+> **Note:** the button fetches the ARM template from `raw.githubusercontent.com`, so the
+> repository must be **public** for it to load. You'll be asked for an environment name
+> and a location. Everything is created for you — including **Azure OpenAI** with a
+> `text-embedding-3-small` deployment and **Azure AI Document Intelligence**. If your
+> primary region has no embedding quota, set the **openAiLocation** parameter to a region
+> that does (the template uses the `GlobalStandard` deployment SKU, which usually has quota).
 
 ## Why this exists
 

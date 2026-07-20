@@ -7,11 +7,23 @@ param environmentName string
 @description('Tags applied to all resources.')
 param tags object = {}
 
-@description('Azure OpenAI endpoint (bring your own).')
-param openAiEndpoint string
+@description('Location for the Azure OpenAI account (must have embedding model quota).')
+param openAiLocation string = location
 
 @description('Azure OpenAI embedding deployment name.')
-param openAiEmbeddingDeployment string
+param openAiEmbeddingDeployment string = 'text-embedding-3-small'
+
+@description('Embedding model name.')
+param openAiEmbeddingModel string = 'text-embedding-3-small'
+
+@description('Embedding model version.')
+param openAiEmbeddingModelVersion string = '1'
+
+@description('TPM capacity (in thousands) for the embedding deployment.')
+param openAiEmbeddingCapacity int = 120
+
+@description('Deployment SKU for the embedding model (GlobalStandard usually has the most quota).')
+param openAiEmbeddingSku string = 'GlobalStandard'
 
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
 var prefix = 'lai${resourceToken}'
@@ -181,6 +193,71 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
 }
 
 // ---------------------------------------------------------------------------
+// Azure OpenAI (embeddings) and Document Intelligence (OCR). Key auth DISABLED;
+// accessed via managed identity, matching the data-plane security model.
+// ---------------------------------------------------------------------------
+resource openAi 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
+  name: '${prefix}-aoai'
+  location: openAiLocation
+  tags: tags
+  kind: 'OpenAI'
+  sku: { name: 'S0' }
+  properties: {
+    customSubDomainName: '${prefix}-aoai'
+    disableLocalAuth: true
+    publicNetworkAccess: 'Enabled'
+  }
+}
+
+resource openAiEmbedding 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
+  parent: openAi
+  name: openAiEmbeddingDeployment
+  sku: { name: openAiEmbeddingSku, capacity: openAiEmbeddingCapacity }
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: openAiEmbeddingModel
+      version: openAiEmbeddingModelVersion
+    }
+  }
+}
+
+resource docIntelligence 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
+  name: '${prefix}-docint'
+  location: location
+  tags: tags
+  kind: 'FormRecognizer'
+  sku: { name: 'S0' }
+  properties: {
+    customSubDomainName: '${prefix}-docint'
+    disableLocalAuth: true
+    publicNetworkAccess: 'Enabled'
+  }
+}
+
+// Cognitive Services OpenAI User for the identity on the Azure OpenAI account
+resource openAiUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(openAi.id, uami.id, '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')
+  scope: openAi
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')
+    principalId: uami.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Cognitive Services User for the identity on the Document Intelligence account
+resource docIntelUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(docIntelligence.id, uami.id, 'a97b65f3-24c7-4388-baec-2e87135dc908')
+  scope: docIntelligence
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')
+    principalId: uami.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Logic App Standard (Workflow Standard plan)
 // ---------------------------------------------------------------------------
 resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
@@ -238,8 +315,9 @@ resource logicApp 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
         { name: 'CDB_VECTOR_PROPERTY', value: 'embedding' }
         { name: 'CDB_TEXT_PROPERTY', value: 'text' }
-        { name: 'OPENAI_ENDPOINT', value: openAiEndpoint }
+        { name: 'OPENAI_ENDPOINT', value: openAi.properties.endpoint }
         { name: 'OPENAI_EMBEDDING_DEPLOYMENT', value: openAiEmbeddingDeployment }
+        { name: 'DOC_INTELLIGENCE_ENDPOINT', value: docIntelligence.properties.endpoint }
         { name: 'WORKFLOWS_SUBSCRIPTION_ID', value: subscription().subscriptionId }
         { name: 'WORKFLOWS_RESOURCE_GROUP_NAME', value: resourceGroup().name }
         { name: 'WORKFLOWS_LOCATION_NAME', value: location }
@@ -256,3 +334,6 @@ output cosmosDatabaseName string = 'rag'
 output cosmosContainerName string = 'documents'
 output managedIdentityClientId string = uami.properties.clientId
 output managedIdentityPrincipalId string = uami.properties.principalId
+output openAiEndpoint string = openAi.properties.endpoint
+output openAiEmbeddingDeployment string = openAiEmbeddingDeployment
+output docIntelligenceEndpoint string = docIntelligence.properties.endpoint

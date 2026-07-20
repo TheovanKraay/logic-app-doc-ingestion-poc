@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.45.15.27210",
-      "templateHash": "17112868390401990031"
+      "templateHash": "11931566968114000889"
     }
   },
   "parameters": {
@@ -43,6 +43,13 @@
       "defaultValue": "text-embedding-3-small",
       "metadata": {
         "description": "Azure OpenAI embedding deployment name."
+      }
+    },
+    "deployerPrincipalId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Object (principal) ID of the user/service that will upload PDFs. If set, they are granted Storage Blob Data Contributor on the data account so they can upload via the portal (needed because shared key is disabled). Leave blank to skip."
       }
     }
   },
@@ -84,6 +91,9 @@
           },
           "openAiEmbeddingDeployment": {
             "value": "[parameters('openAiEmbeddingDeployment')]"
+          },
+          "deployerPrincipalId": {
+            "value": "[parameters('deployerPrincipalId')]"
           }
         },
         "template": {
@@ -93,7 +103,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.45.15.27210",
-              "templateHash": "3067342166383407411"
+              "templateHash": "3505638220593739731"
             }
           },
           "parameters": {
@@ -156,6 +166,13 @@
               "defaultValue": "GlobalStandard",
               "metadata": {
                 "description": "Deployment SKU for the embedding model (GlobalStandard usually has the most quota)."
+              }
+            },
+            "deployerPrincipalId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Object (principal) ID of the user/service that uploads PDFs. If set, grants Storage Blob Data Contributor on the data account."
               }
             }
           },
@@ -341,6 +358,21 @@
               "dependsOn": [
                 "[resourceId('Microsoft.Storage/storageAccounts', format('{0}data', variables('prefix')))]",
                 "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-mi', variables('prefix')))]"
+              ]
+            },
+            {
+              "condition": "[not(empty(parameters('deployerPrincipalId')))]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Storage/storageAccounts', format('{0}data', variables('prefix')))]",
+              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', format('{0}data', variables('prefix'))), parameters('deployerPrincipalId'), 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+                "principalId": "[parameters('deployerPrincipalId')]",
+                "principalType": "User"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', format('{0}data', variables('prefix')))]"
               ]
             },
             {

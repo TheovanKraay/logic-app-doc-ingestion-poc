@@ -18,6 +18,9 @@ param openAiLocation string = location
 @description('Azure OpenAI embedding deployment name.')
 param openAiEmbeddingDeployment string = 'text-embedding-3-small'
 
+@description('Object (principal) ID of the user/service that will upload PDFs. If set, they are granted Storage Blob Data Contributor on the data account so they can upload via the portal (needed because shared key is disabled). Leave blank to skip.')
+param deployerPrincipalId string = ''
+
 var tags = {
   'azd-env-name': environmentName
 }
@@ -44,6 +47,7 @@ module resources 'resources.bicep' = {
     tags: tags
     openAiLocation: openAiLocation
     openAiEmbeddingDeployment: openAiEmbeddingDeployment
+    deployerPrincipalId: deployerPrincipalId
   }
 }
 

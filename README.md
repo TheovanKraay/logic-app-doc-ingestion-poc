@@ -16,6 +16,13 @@ so it works even when the storage account has **shared key access disabled**.
 > `text-embedding-3-small` deployment and **Azure AI Document Intelligence**. If your
 > primary region has no embedding quota, set the **openAiLocation** parameter to a region
 > that does (the template uses the `GlobalStandard` deployment SKU, which usually has quota).
+>
+> **To upload PDFs via the portal**, set the **deployerPrincipalId** parameter to your own
+> object ID so you're granted `Storage Blob Data Contributor` on the data account (shared key
+> is disabled, so the portal Storage browser uses your Entra identity). Get it with:
+> `az ad signed-in-user show --query id -o tsv`. Without it you'll see
+> *"You do not have permissions to list the data using your user account"* and must assign
+> the role manually.
 
 ## Why this exists
 

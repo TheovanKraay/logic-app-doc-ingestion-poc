@@ -25,6 +25,9 @@ param openAiEmbeddingCapacity int = 120
 @description('Deployment SKU for the embedding model (GlobalStandard usually has the most quota).')
 param openAiEmbeddingSku string = 'GlobalStandard'
 
+@description('Object (principal) ID of the user/service that uploads PDFs. If set, grants Storage Blob Data Contributor on the data account.')
+param deployerPrincipalId string = ''
+
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
 var prefix = 'lai${resourceToken}'
 
@@ -165,6 +168,18 @@ resource blobDataReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')
     principalId: uami.properties.principalId
     principalType: 'ServicePrincipal'
+  }
+}
+
+// Storage Blob Data Contributor for the human/service deploying the sample, so they
+// can upload PDFs via the portal (shared key is disabled on the data account).
+resource deployerBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(deployerPrincipalId)) {
+  name: guid(dataStorage.id, deployerPrincipalId, 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+  scope: dataStorage
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+    principalId: deployerPrincipalId
+    principalType: 'User'
   }
 }
 

@@ -6,6 +6,16 @@ chunks + vectors into **Azure Cosmos DB for NoSQL** where they can be queried wi
 **native vector search** — all wired with **Managed Identity** (no account keys, no SAS)
 so it works even when the storage account has **shared key access disabled**.
 
+## Quick deploy (full end-to-end sample)
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FTheovanKraay%2Flogic-app-doc-ingestion-poc%2Fmain%2Ffull-deploy%2Fazuredeploy.json)
+
+> **Note:** the button fetches the ARM template from `raw.githubusercontent.com`, which
+> only works when the repository is **public**. While this repo is private, use
+> `azd up` from [`full-deploy/`](full-deploy/) instead (or make the repo public).
+> You will be asked for a location and your **Azure OpenAI endpoint** + embedding
+> deployment name.
+
 ## Why this exists
 
 Customers hardening their storage (shared key disabled / private endpoints) hit two classes of failure:
